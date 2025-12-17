@@ -15,7 +15,7 @@ public class IngresoHistorial {
     private Long id;
 
     private LocalDate fecha;
-    private String numeroDocumento; // Para agrupar por factura
+    private String numeroDocumento; 
     private String supplierRut;
     private String supplierName;
     private String usuarioResponsable;
@@ -23,12 +23,13 @@ public class IngresoHistorial {
     private String productSku;
     private String productName;
     private String category;
-    private String areaDestino;
+    
+    // En la base de datos se llama 'areaDestino', pero tu código busca 'getAreaNombre'
+    private String areaDestino; 
 
     private Double cantidad;
-    private Double costoUnitario; // <--- ¡ESTE ES EL DATO CLAVE QUE FALTABA!
+    private Double costoUnitario; 
 
-    // Constructor completo
     public IngresoHistorial(LocalDate fecha, 
                             String numeroDocumento, 
                             String productSku, 
@@ -49,5 +50,30 @@ public class IngresoHistorial {
         this.areaDestino = areaDestino;
         this.cantidad = cantidad;
         this.costoUnitario = costoUnitario;
+    }
+
+    // --- MÉTODOS CALCULADOS (SOLUCIÓN A TUS ERRORES) ---
+
+    // 1. Soluciona el error "getAreaNombre() undefined"
+    // Simplemente devuelve el valor de areaDestino
+    public String getAreaNombre() {
+        return this.areaDestino;
+    }
+
+    // 2. Calcula el Neto al vuelo (Cantidad * Costo)
+    public Double getTotalNeto() {
+        if (cantidad == null || costoUnitario == null) return 0.0;
+        return cantidad * costoUnitario;
+    }
+
+    // 3. Soluciona el error "getTotalBruto() undefined"
+    // Calcula el Bruto (Neto * 1.19)
+    public Double getTotalBruto() {
+        return getTotalNeto() * 1.19; 
+    }
+    
+    // 4. Opcional: Para obtener el IVA si lo necesitas
+    public Double getTotalIva() {
+        return getTotalNeto() * 0.19;
     }
 }

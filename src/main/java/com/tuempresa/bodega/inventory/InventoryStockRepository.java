@@ -1,7 +1,7 @@
 package com.tuempresa.bodega.inventory;
 
 import com.tuempresa.bodega.area.AreaDeTrabajo;
-import com.tuempresa.bodega.inventory.dto.InventarioDetalleDto; // Asegúrate de importar el DTO
+import com.tuempresa.bodega.inventory.dto.InventarioDetalleDto;
 import com.tuempresa.bodega.product.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -13,16 +13,20 @@ import java.util.List;
 @Repository
 public interface InventoryStockRepository extends JpaRepository<InventoryStock, Long> {
 
-    // 1. Búsquedas Estándar (Para lógica FIFO y validaciones)
+    // 1. Búsquedas Estándar
     List<InventoryStock> findByAreaDeTrabajo(AreaDeTrabajo areaDeTrabajo);
     
     List<InventoryStock> findByAreaDeTrabajoAndProductOrderByFechaIngresoAsc(AreaDeTrabajo area, Product product);
 
-    // 2. Búsqueda por Producto (Para el Reporte de Productos con Área)
+    // 2. Búsqueda por Producto
     List<InventoryStock> findByProduct(Product product);
 
-    // 3. INVENTARIO COMPLETO (Para el Módulo de Inventario General)
-    // Agrupa todo el stock de todas las áreas
+    // --- 5. BÚSQUEDA POR SKU (NECESARIA PARA EDICIÓN DE INGRESOS) ---
+    // Esta permite al Service encontrar el stock físico para ajustar cantidades
+    @Query("SELECT s FROM InventoryStock s WHERE s.product.sku = :sku")
+    List<InventoryStock> findByProductSku(@Param("sku") String sku);
+
+    // 3. INVENTARIO COMPLETO
     @Query("SELECT new com.tuempresa.bodega.inventory.dto.InventarioDetalleDto(" +
            "s.product.sku, s.product.name, s.product.category, s.areaDeTrabajo.nombre, " +
            "SUM(s.cantidad), s.product.unitOfMeasure) " +
@@ -31,8 +35,7 @@ public interface InventoryStockRepository extends JpaRepository<InventoryStock, 
            "HAVING SUM(s.cantidad) > 0")
     List<InventarioDetalleDto> obtenerInventarioCompleto();
 
-    // 4. STOCK POR ÁREA (Para el Módulo Guía de Consumo) <--- ¡ESTE ES EL QUE FALTABA!
-    // Filtra solo por el área seleccionada para llenar el carrito de salida
+    // 4. STOCK POR ÁREA
     @Query("SELECT new com.tuempresa.bodega.inventory.dto.InventarioDetalleDto(" +
            "s.product.sku, s.product.name, s.product.category, s.areaDeTrabajo.nombre, " +
            "SUM(s.cantidad), s.product.unitOfMeasure) " +

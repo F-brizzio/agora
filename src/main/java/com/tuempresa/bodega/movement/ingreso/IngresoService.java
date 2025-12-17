@@ -34,36 +34,24 @@ public class IngresoService {
 
     @Transactional
     public void procesarIngreso(IngresoRequestDto request) {
-
-        // 1. VALIDACIÓN DE ENCABEZADO: Mismo Doc = Mismo Proveedor
-        // Buscamos si este número de documento ya existe en el historial
         List<IngresoHistorial> ingresosPrevios = historialRepository.findByNumeroDocumento(request.getNumeroDocumento());
 
         if (!ingresosPrevios.isEmpty()) {
             String proveedorExistente = ingresosPrevios.get(0).getSupplierName();
-            String proveedorNuevo = request.getSupplierName();
-
-            // Validamos que el proveedor sea el mismo (ignorando mayúsculas/minúsculas)
-            if (!proveedorExistente.equalsIgnoreCase(proveedorNuevo)) {
+            if (!proveedorExistente.equalsIgnoreCase(request.getSupplierName())) {
                 throw new RuntimeException("⛔ Error: El documento N° " + request.getNumeroDocumento() +
-                        " ya existe asociado al proveedor '" + proveedorExistente +
-                        "'. No puede utilizarse para '" + proveedorNuevo + "'.");
+                        " ya existe asociado al proveedor '" + proveedorExistente + "'.");
             }
         }
 
-        // Definir responsable (o default)
         String responsable = (request.getResponsable() != null && !request.getResponsable().isEmpty())
-                ? request.getResponsable()
-                : "Sistema";
+                ? request.getResponsable() : "Sistema";
         
         LocalDate fechaIngreso = request.getFecha() != null ? request.getFecha() : LocalDate.now();
 
-        // 2. PROCESAR CADA ÍTEM DE LA LISTA
         for (IngresoRequestDto.IngresoItemDto item : request.getItems()) {
             procesarItemIndividual(item, request, fechaIngreso, responsable);
         }
-        
-        System.out.println("✅ INGRESO MASIVO COMPLETADO. Doc: " + request.getNumeroDocumento());
     }
 
     private void procesarItemIndividual(IngresoRequestDto.IngresoItemDto item, 
@@ -71,66 +59,68 @@ public class IngresoService {
                                         LocalDate fecha, 
                                         String responsable) {
 
-        // A. Lógica de Producto (Buscar o Crear)
         Optional<Product> productoExistente = productRepository.findBySku(item.getProductSku());
-        Product producto;
-
-        if (productoExistente.isPresent()) {
-            producto = productoExistente.get();
-        } else {
-            System.out.println("⚠️ Producto nuevo detectado en lista: " + item.getProductSku());
-
-            // Validaciones básicas para producto nuevo
-            if (item.getProductName() == null || item.getProductName().trim().isEmpty()) {
-                throw new RuntimeException("El producto SKU " + item.getProductSku() + " es nuevo. Debe ingresar el Nombre.");
-            }
-
+        Product producto = productoExistente.orElseGet(() -> {
             Product nuevo = new Product();
             nuevo.setSku(item.getProductSku());
             nuevo.setName(item.getProductName());
-            
-            // Usamos los datos del proveedor que vienen en la cabecera
             nuevo.setSupplierName(cabecera.getSupplierName());
             nuevo.setSupplierRut(cabecera.getSupplierRut());
-
-            // Datos específicos del producto nuevo (Valores por defecto si vienen nulos)
             nuevo.setCategory(item.getCategory() != null ? item.getCategory() : "General");
             nuevo.setUnitOfMeasure(item.getUnitOfMeasure() != null ? item.getUnitOfMeasure() : "UNIDAD");
             nuevo.setMinStock(item.getMinStock() != null ? item.getMinStock() : 10.0);
             nuevo.setMaxStock(item.getMaxStock() != null ? item.getMaxStock() : 100.0);
             nuevo.setMaxStorageDays(item.getMaxStorageDays() != null ? item.getMaxStorageDays() : 60);
+            return productRepository.save(nuevo);
+        });
 
-            producto = productRepository.save(nuevo);
-        }
-
-        // B. Buscar Área de Destino
         AreaDeTrabajo area = areaRepository.findById(item.getAreaId())
                 .orElseThrow(() -> new RuntimeException("Área no encontrada para el producto: " + item.getProductSku()));
 
-        // C. Crear Stock (Registro físico en inventario)
-        InventoryStock nuevoStock = new InventoryStock(
-                producto,
-                area,
-                item.getCantidad(),
-                fecha
-        );
+        InventoryStock nuevoStock = new InventoryStock(producto, area, item.getCantidad(), fecha);
         inventoryRepository.save(nuevoStock);
 
-        // D. Guardar Historial (Registro de auditoría)
         IngresoHistorial historial = new IngresoHistorial(
-                fecha,
-                cabecera.getNumeroDocumento(),
-                producto.getSku(),
-                producto.getName(),
-                producto.getCategory(),
-                cabecera.getSupplierName(), // Usamos nombre proveedor de cabecera
-                cabecera.getSupplierRut(),  // Usamos rut proveedor de cabecera
-                area.getNombre(),
-                item.getCantidad(),
-                item.getCostoUnitario()
+                fecha, cabecera.getNumeroDocumento(), producto.getSku(), producto.getName(), producto.getCategory(),
+                cabecera.getSupplierName(), cabecera.getSupplierRut(), area.getNombre(), item.getCantidad(), item.getCostoUnitario()
         );
 
         historial.setUsuarioResponsable(responsable);
         historialRepository.save(historial);
+    }
+
+    // --- NUEVO MÉTODO PARA EDITAR Y AJUSTAR STOCK ---
+    @Transactional
+    public IngresoHistorial actualizarIngreso(Long id, IngresoHistorial nuevosDatos) {
+        // 1. Obtener el registro histórico
+        IngresoHistorial historial = historialRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Registro no encontrado"));
+
+        // 2. Ajuste de stock físico si cambió la cantidad
+        if (!historial.getCantidad().equals(nuevosDatos.getCantidad())) {
+            // Buscamos los registros de stock de este producto
+            List<InventoryStock> stocks = inventoryRepository.findByProductSku(historial.getProductSku());
+            
+            // Buscamos el registro que coincida con la entrada original 
+            // Usamos getFechaIngreso() que es el nombre real en tu entidad
+            InventoryStock stockFisico = stocks.stream()
+                .filter(s -> s.getCantidad().equals(historial.getCantidad()) 
+                        && s.getFechaIngreso().equals(historial.getFecha())) 
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("No se encontró el stock físico en inventario para ajustar la cantidad."));
+
+            // Actualizamos la cantidad en el stock real
+            stockFisico.setCantidad(nuevosDatos.getCantidad());
+            inventoryRepository.save(stockFisico);
+        }
+
+        // 3. Actualizar datos del registro histórico (Auditoría)
+        historial.setCantidad(nuevosDatos.getCantidad());
+        historial.setCostoUnitario(nuevosDatos.getCostoUnitario());
+        historial.setNumeroDocumento(nuevosDatos.getNumeroDocumento());
+        historial.setSupplierRut(nuevosDatos.getSupplierRut());
+        historial.setSupplierName(nuevosDatos.getSupplierName());
+
+        return historialRepository.save(historial);
     }
 }

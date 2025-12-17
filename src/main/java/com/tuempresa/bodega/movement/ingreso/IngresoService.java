@@ -34,11 +34,13 @@ public class IngresoService {
 
     @Transactional
     public void procesarIngreso(IngresoRequestDto request) {
+        // Validación de duplicados (Lógica defensiva)
         List<IngresoHistorial> ingresosPrevios = historialRepository.findByNumeroDocumento(request.getNumeroDocumento());
 
         if (!ingresosPrevios.isEmpty()) {
             String proveedorExistente = ingresosPrevios.get(0).getSupplierName();
-            if (!proveedorExistente.equalsIgnoreCase(request.getSupplierName())) {
+            // Normalizamos strings para evitar errores por mayúsculas/minúsculas
+            if (!proveedorExistente.trim().equalsIgnoreCase(request.getSupplierName().trim())) {
                 throw new RuntimeException("⛔ Error: El documento N° " + request.getNumeroDocumento() +
                         " ya existe asociado al proveedor '" + proveedorExistente + "'.");
             }
@@ -77,9 +79,11 @@ public class IngresoService {
         AreaDeTrabajo area = areaRepository.findById(item.getAreaId())
                 .orElseThrow(() -> new RuntimeException("Área no encontrada para el producto: " + item.getProductSku()));
 
+        // Crear lote de inventario
         InventoryStock nuevoStock = new InventoryStock(producto, area, item.getCantidad(), fecha);
         inventoryRepository.save(nuevoStock);
 
+        // Guardar historial
         IngresoHistorial historial = new IngresoHistorial(
                 fecha, cabecera.getNumeroDocumento(), producto.getSku(), producto.getName(), producto.getCategory(),
                 cabecera.getSupplierName(), cabecera.getSupplierRut(), area.getNombre(), item.getCantidad(), item.getCostoUnitario()
@@ -89,37 +93,52 @@ public class IngresoService {
         historialRepository.save(historial);
     }
 
-    // --- NUEVO MÉTODO PARA EDITAR Y AJUSTAR STOCK ---
+    // --- LÓGICA CORREGIDA PARA ACTUALIZACIÓN ---
     @Transactional
     public IngresoHistorial actualizarIngreso(Long id, IngresoHistorial nuevosDatos) {
-        // 1. Obtener el registro histórico
+        // 1. Obtener el registro histórico original
         IngresoHistorial historial = historialRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Registro no encontrado"));
+                .orElseThrow(() -> new RuntimeException("Registro histórico no encontrado"));
 
-        // 2. Ajuste de stock físico si cambió la cantidad
-        if (!historial.getCantidad().equals(nuevosDatos.getCantidad())) {
-            // Buscamos los registros de stock de este producto
+        // 2. Verificar si cambió la cantidad para ajustar el stock físico (Lógica Delta)
+        Double cantidadAnterior = historial.getCantidad();
+        Double cantidadNueva = nuevosDatos.getCantidad();
+
+        // Usamos equals con tolerancia para doubles o comparación directa si no son nulos
+        if (cantidadAnterior != null && !cantidadAnterior.equals(cantidadNueva)) {
+            double diferencia = cantidadNueva - cantidadAnterior; 
+
+            // Buscamos el stock físico asociado usando SKU, Fecha y Área
             List<InventoryStock> stocks = inventoryRepository.findByProductSku(historial.getProductSku());
             
-            // Buscamos el registro que coincida con la entrada original 
-            // Usamos getFechaIngreso() que es el nombre real en tu entidad
             InventoryStock stockFisico = stocks.stream()
-                .filter(s -> s.getCantidad().equals(historial.getCantidad()) 
-                        && s.getFechaIngreso().equals(historial.getFecha())) 
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("No se encontró el stock físico en inventario para ajustar la cantidad."));
+    .filter(s -> s.getFechaIngreso().equals(historial.getFecha())) 
+    
+    // CORRECCIÓN AQUÍ: Usamos .getAreaDeTrabajo() en lugar de .getArea()
+    .filter(s -> s.getAreaDeTrabajo().getNombre().equalsIgnoreCase(historial.getAreaNombre())) 
+    
+    .findFirst()
+    .orElseThrow(() -> new RuntimeException("No se encontró el lote de inventario original..."));
+            // Validar que no quede negativo
+            if (stockFisico.getCantidad() + diferencia < 0) {
+                throw new RuntimeException("⛔ No se puede reducir la cantidad: El stock físico actual (" 
+                    + stockFisico.getCantidad() + ") es insuficiente.");
+            }
 
-            // Actualizamos la cantidad en el stock real
-            stockFisico.setCantidad(nuevosDatos.getCantidad());
+            // Aplicar ajuste
+            stockFisico.setCantidad(stockFisico.getCantidad() + diferencia);
             inventoryRepository.save(stockFisico);
         }
 
-        // 3. Actualizar datos del registro histórico (Auditoría)
+        // 3. Actualizar datos del registro histórico
+        // Solo actualizamos los datos base. Los totales (Neto/Bruto) se calcularán solos gracias a tu Entidad.
         historial.setCantidad(nuevosDatos.getCantidad());
         historial.setCostoUnitario(nuevosDatos.getCostoUnitario());
         historial.setNumeroDocumento(nuevosDatos.getNumeroDocumento());
         historial.setSupplierRut(nuevosDatos.getSupplierRut());
         historial.setSupplierName(nuevosDatos.getSupplierName());
+        
+        // NO hace falta setTotalNeto ni setTotalBruto, tu clase los calcula automágicamente.
 
         return historialRepository.save(historial);
     }

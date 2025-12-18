@@ -1,33 +1,29 @@
 package com.tuempresa.bodega.inventory;
 
-import com.tuempresa.bodega.inventory.dto.InventarioDetalleDto; // <--- USAMOS EL NUEVO DTO
-import org.springframework.http.ResponseEntity;
+import com.tuempresa.bodega.inventory.dto.InventarioDetalleDto;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/inventory")
+@RequestMapping("/api/inventory") // 👈 OJO: Confirma que tu ruta base sea esta
+@CrossOrigin("*") // Permite conexión desde React
 public class InventoryController {
 
-    private final InventoryStockRepository repository;
-    private final InventoryService service; // Inyectamos el servicio si es necesario lógica extra
+    private final InventoryService inventoryService;
 
-    public InventoryController(InventoryStockRepository repository, InventoryService service) {
-        this.repository = repository;
-        this.service = service;
+    public InventoryController(InventoryService inventoryService) {
+        this.inventoryService = inventoryService;
     }
 
-    // RF 2.1: Inventario Completo (Módulo Inventario)
-    @GetMapping("/completo")
-    public ResponseEntity<List<InventarioDetalleDto>> obtenerInventarioCompleto() {
-        return ResponseEntity.ok(repository.obtenerInventarioCompleto());
-    }
-
-    // Para Guía de Consumo (Filtrado por Área)
+    // Endpoint existente (seguramente ya tienes este)
     @GetMapping("/area/{areaId}")
-    public ResponseEntity<List<InventarioDetalleDto>> getStockByArea(@PathVariable Long areaId) {
-        // Llamamos al servicio que ya actualizamos
-        return ResponseEntity.ok(service.getStockByArea(areaId));
+    public List<InventarioDetalleDto> getStockByArea(@PathVariable Long areaId) {
+        return inventoryService.getStockByArea(areaId);
+    }
+
+    // 🔥 AGREGA ESTE NUEVO ENDPOINT PARA LA OPCIÓN "GENERAL"
+    @GetMapping("/all")
+    public List<InventarioDetalleDto> getAllStock() {
+        return inventoryService.getInventarioCompleto();
     }
 }

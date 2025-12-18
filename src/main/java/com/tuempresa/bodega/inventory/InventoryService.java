@@ -24,4 +24,8 @@ public class InventoryService {
     public List<InventarioDetalleDto> getInventarioCompleto() {
         return inventoryRepository.obtenerInventarioCompleto();
     }
+
+
+
+    
 }

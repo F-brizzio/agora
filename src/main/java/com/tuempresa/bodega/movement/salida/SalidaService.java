@@ -28,56 +28,63 @@ public class SalidaService {
         this.historialRepository = historialRepository;
     }
 
-    // --- 1. PROCESAR GUÍA DE CONSUMO (POST) ---
     @Transactional
     public void procesarGuiaConsumo(GuiaConsumoDto guia) {
         
-        // 1. Validar Fecha (Si es null, usa hoy)
-        LocalDate fechaRegistro = guia.getFecha();
-        if (fechaRegistro == null) {
-            fechaRegistro = LocalDate.now();
-        }
-
-        // 2. Obtener Responsable (Del DTO)
+        LocalDate fechaRegistro = guia.getFecha() != null ? guia.getFecha() : LocalDate.now();
+        
         String responsable = (guia.getResponsable() != null && !guia.getResponsable().isEmpty()) 
-                             ? guia.getResponsable() 
-                             : "Usuario Sistema";
+                             ? guia.getResponsable() : "Usuario Sistema";
 
-        // 3. Validar Área Origen
-        AreaDeTrabajo areaOrigen = areaRepository.findById(guia.getAreaOrigenId())
-                .orElseThrow(() -> new RuntimeException("Área de origen no encontrada"));
+        String folio = "GC-" + System.currentTimeMillis();
 
-        String folio = "GC-" + System.currentTimeMillis(); 
-
-        // 4. Procesar Detalles (Iteramos por cada producto/línea)
         for (GuiaConsumoDto.DetalleSalidaDto detalle : guia.getDetalles()) {
             
+            // A. DETERMINAR EL ÁREA DE ORIGEN
+            // Calculamos el ID. Si el detalle es null, usamos el de la guía.
+            Long idCalculado = detalle.getAreaOrigenId();
+            if (idCalculado == null) {
+                idCalculado = guia.getAreaOrigenId();
+            }
+
+            if (idCalculado == null) {
+                throw new RuntimeException("No se especificó un Área de Origen para el producto: " + detalle.getProductSku());
+            }
+
+            // TRUCO PARA JAVA: Creamos una variable "final" auxiliar para usar dentro de la Lambda
+            final Long idParaConsulta = idCalculado;
+
+            AreaDeTrabajo areaOrigen = areaRepository.findById(idParaConsulta)
+                    .orElseThrow(() -> new RuntimeException("Área de origen no encontrada ID: " + idParaConsulta));
+
+            // B. BUSCAR PRODUCTO
             Product producto = productRepository.findBySku(detalle.getProductSku())
                     .orElseThrow(() -> new RuntimeException("Producto no encontrado: " + detalle.getProductSku()));
 
-            // Lógica de Destino: Si sale de Bodega, registramos para quién fue.
-            String nombreDestino = "Consumo Interno"; 
-            if (areaOrigen.getNombre().equalsIgnoreCase("Sin Asignar") || areaOrigen.getNombre().equalsIgnoreCase("Bodega Central")) {
-                if (detalle.getAreaDestinoId() != null) {
-                     AreaDeTrabajo destino = areaRepository.findById(detalle.getAreaDestinoId()).orElse(null);
-                     if(destino != null) nombreDestino = destino.getNombre();
-                }
-            } else {
-                 nombreDestino = areaOrigen.getNombre(); 
+            // C. LOGICA DE DESTINO
+            String nombreDestino = "Consumo Interno";
+            boolean esBodega = areaOrigen.getNombre().equalsIgnoreCase("Bodega Central") || areaOrigen.getNombre().equalsIgnoreCase("Sin Asignar");
+            
+            if (esBodega && detalle.getAreaDestinoId() != null) {
+                AreaDeTrabajo destino = areaRepository.findById(detalle.getAreaDestinoId()).orElse(null);
+                if(destino != null) nombreDestino = destino.getNombre();
+            } else if (!esBodega) {
+                nombreDestino = areaOrigen.getNombre(); 
             }
 
-            // Lógica FIFO (Descuento de Stock)
+            // D. LOGICA FIFO
             List<InventoryStock> stocks = inventoryRepository.findByAreaDeTrabajoAndProductOrderByFechaIngresoAsc(areaOrigen, producto);
             double totalDisponible = stocks.stream().mapToDouble(InventoryStock::getCantidad).sum();
-            
+
             if (totalDisponible < detalle.getCantidad()) {
-                 throw new RuntimeException("Stock insuficiente para " + producto.getName() + ". Disponible: " + totalDisponible);
+                throw new RuntimeException("Stock insuficiente en " + areaOrigen.getNombre() + " para " + producto.getName());
             }
-            
+
             double restante = detalle.getCantidad();
             for (InventoryStock lote : stocks) {
                 if (restante <= 0) break;
                 double disp = lote.getCantidad();
+
                 if (disp <= restante) {
                     restante -= disp;
                     inventoryRepository.delete(lote);
@@ -88,35 +95,30 @@ public class SalidaService {
                 }
             }
 
-            // 5. Guardar Historial con TIPO DE SALIDA (Merma o Consumo)
-            
-            // Leemos el tipo desde el detalle (Si el front no manda nada, es CONSUMO)
-            String tipoRegistro = (detalle.getTipoSalida() != null && !detalle.getTipoSalida().isEmpty()) 
-                                  ? detalle.getTipoSalida() 
-                                  : "CONSUMO";
+            // E. GUARDAR HISTORIAL
+            String tipoRegistro = (detalle.getTipoSalida() != null && !detalle.getTipoSalida().isEmpty())
+                                  ? detalle.getTipoSalida() : "CONSUMO";
 
             SalidaHistorial lineaHistorial = new SalidaHistorial(
                 fechaRegistro,
-                folio,                  
+                folio,
                 producto.getSku(),
                 producto.getName(),
                 areaOrigen.getNombre(),
-                nombreDestino,          
+                nombreDestino,
                 detalle.getCantidad()
             );
             
-            // Asignamos los campos adicionales
             lineaHistorial.setUsuarioResponsable(responsable);
-            lineaHistorial.setTipoSalida(tipoRegistro); // <--- AQUÍ SE GUARDA SI FUE MERMA
+            lineaHistorial.setTipoSalida(tipoRegistro);
             
             historialRepository.save(lineaHistorial);
         }
         
-        System.out.println("✅ GUÍA PROCESADA. FOLIO: " + folio + " | Responsable: " + responsable);
+        System.out.println("✅ GUÍA PROCESADA CORRECTAMENTE. FOLIO: " + folio);
     }
 
-    // --- 2. OBTENER HISTORIAL (GET) ---
     public List<SalidaHistorial> obtenerHistorialCompleto() {
-        return historialRepository.findAll();
+        return historialRepository.findAll(); 
     }
 }

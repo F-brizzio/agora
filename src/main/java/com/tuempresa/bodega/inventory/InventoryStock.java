@@ -13,32 +13,35 @@ public class InventoryStock {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Relación con Producto (Muchos stocks pueden ser del mismo producto)
     @ManyToOne
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
-    // Relación con Área (Muchos stocks pueden estar en la misma área)
     @ManyToOne
     @JoinColumn(name = "area_id", nullable = false)
     private AreaDeTrabajo areaDeTrabajo;
 
     @Column(nullable = false)
-    private Double cantidad; // Usamos Double para soportar Kilos/Litros (ej: 1.5 Kg)
+    private Double cantidad; 
 
     @Column(nullable = false)
-    private LocalDate fechaIngreso; // VITAL PARA FIFO (Lo más viejo sale primero)
+    private LocalDate fechaIngreso; // VITAL PARA FIFO
 
-    // Constructor Vacío
+    // --- NUEVO CAMPO: VALOR DEL LOTE ---
+    @Column(nullable = false)
+    private Double precioCosto; 
+
     public InventoryStock() {
     }
 
-    // Constructor Completo
-    public InventoryStock(Product product, AreaDeTrabajo areaDeTrabajo, Double cantidad, LocalDate fechaIngreso) {
+    // Constructor Actualizado
+    public InventoryStock(Product product, AreaDeTrabajo areaDeTrabajo, Double cantidad, LocalDate fechaIngreso, Double precioCosto) {
         this.product = product;
         this.areaDeTrabajo = areaDeTrabajo;
         this.cantidad = cantidad;
         this.fechaIngreso = fechaIngreso;
+        this.precioCosto = precioCosto;
+        
     }
 
     // Getters y Setters
@@ -56,4 +59,7 @@ public class InventoryStock {
 
     public LocalDate getFechaIngreso() { return fechaIngreso; }
     public void setFechaIngreso(LocalDate fechaIngreso) { this.fechaIngreso = fechaIngreso; }
+
+    public Double getPrecioCosto() { return precioCosto; }
+    public void setPrecioCosto(Double precioCosto) { this.precioCosto = precioCosto; }
 }

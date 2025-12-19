@@ -25,6 +25,7 @@ public class Product {
     private String supplierRut; 
     
     private Integer maxStorageDays;
+    private Double price;
 
     // --- ELIMINADO: private Double price; ---
 
@@ -64,5 +65,7 @@ public class Product {
     public Integer getMaxStorageDays() { return maxStorageDays; }
     public void setMaxStorageDays(Integer maxStorageDays) { this.maxStorageDays = maxStorageDays; }
 
+    public Double getPrice() { return price; }
+    public void setPrice(Double price) { this.price = price; }
     // --- ELIMINADO: getPrice y setPrice ---
 }

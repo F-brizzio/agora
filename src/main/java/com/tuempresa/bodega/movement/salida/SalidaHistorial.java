@@ -1,9 +1,10 @@
 package com.tuempresa.bodega.movement.salida;
 
-import jakarta.persistence.*; // O javax.persistence si es Java viejo
+import jakarta.persistence.*;
 import java.time.LocalDate;
 
 @Entity
+@Table(name = "salida_historial")
 public class SalidaHistorial {
 
     @Id
@@ -13,15 +14,17 @@ public class SalidaHistorial {
     private LocalDate fecha;
     private String folio;
     
-    // Nombres de campos internos
-    private String productSku;    // Antes sku
-    private String productName;   // Antes producto
-    private String areaOrigen;    // Antes origen
-    private String areaDestino;   // Antes destino
+    private String productSku; 
+    private String productName; 
+    private String areaOrigen;  
+    private String areaDestino; 
     
     private Double cantidad;
     private String usuarioResponsable;
-    private String tipoSalida; 
+    private String tipoSalida; // CONSUMO o MERMA
+
+    // --- NUEVO CAMPO PARA EL REQUISITO DE VALOR NETO ---
+    private Double valorNeto;
 
     public SalidaHistorial() {}
 
@@ -35,7 +38,7 @@ public class SalidaHistorial {
         this.cantidad = cantidad;
     }
 
-    // --- GETTERS Y SETTERS QUE EL COMPILADOR ESTÁ PIDIENDO ---
+    // --- GETTERS Y SETTERS ---
 
     public Long getId() { return id; }
 
@@ -45,19 +48,15 @@ public class SalidaHistorial {
     public String getFolio() { return folio; }
     public void setFolio(String folio) { this.folio = folio; }
 
-    // Aquí solucionamos: "The method getProductSku() is undefined"
     public String getProductSku() { return productSku; }
     public void setProductSku(String productSku) { this.productSku = productSku; }
 
-    // Aquí solucionamos: "The method getProductName() is undefined"
     public String getProductName() { return productName; }
     public void setProductName(String productName) { this.productName = productName; }
 
-    // Aquí solucionamos: "The method getAreaOrigen() is undefined"
     public String getAreaOrigen() { return areaOrigen; }
     public void setAreaOrigen(String areaOrigen) { this.areaOrigen = areaOrigen; }
 
-    // Aquí solucionamos: "The method getAreaDestino() is undefined"
     public String getAreaDestino() { return areaDestino; }
     public void setAreaDestino(String areaDestino) { this.areaDestino = areaDestino; }
 
@@ -69,4 +68,8 @@ public class SalidaHistorial {
 
     public String getTipoSalida() { return tipoSalida; }
     public void setTipoSalida(String tipoSalida) { this.tipoSalida = tipoSalida; }
+
+    // Getter y Setter para el Valor Neto
+    public Double getValorNeto() { return valorNeto; }
+    public void setValorNeto(Double valorNeto) { this.valorNeto = valorNeto; }
 }

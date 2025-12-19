@@ -7,14 +7,19 @@ public class InventarioDetalleDto {
     private String areaNombre;
     private Double cantidadTotal;
     private String unidadMedida;
+    // --- NUEVO CAMPO PARA VALORIZACIÓN ---
+    private Double valorTotalStock; 
 
-    public InventarioDetalleDto(String productSku, String productName, String category, String areaNombre, Double cantidadTotal, String unidadMedida) {
+    public InventarioDetalleDto(String productSku, String productName, String category, 
+                                String areaNombre, Double cantidadTotal, 
+                                String unidadMedida, Double valorTotalStock) {
         this.productSku = productSku;
         this.productName = productName;
         this.category = category;
         this.areaNombre = areaNombre;
         this.cantidadTotal = cantidadTotal;
         this.unidadMedida = unidadMedida;
+        this.valorTotalStock = valorTotalStock;
     }
 
     // Getters
@@ -24,4 +29,5 @@ public class InventarioDetalleDto {
     public String getAreaNombre() { return areaNombre; }
     public Double getCantidadTotal() { return cantidadTotal; }
     public String getUnidadMedida() { return unidadMedida; }
+    public Double getValorTotalStock() { return valorTotalStock; }
 }

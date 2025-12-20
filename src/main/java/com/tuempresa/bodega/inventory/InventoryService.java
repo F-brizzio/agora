@@ -9,28 +9,28 @@ import java.util.List;
 @Service
 public class InventoryService {
 
-    // CORRECCIÓN: Usar el repositorio real del proyecto
-    private final InventoryStockRepository inventoryStockRepository;
+    private final InventoryStockRepository inventoryRepository;
 
-    public InventoryService(InventoryStockRepository inventoryStockRepository) {
-        this.inventoryStockRepository = inventoryStockRepository;
+    public InventoryService(InventoryStockRepository inventoryRepository) {
+        this.inventoryRepository = inventoryRepository;
     }
 
     public List<InventarioDetalleDto> getInventarioCompleto() {
-        return inventoryStockRepository.obtenerInventarioCompleto(); // Nombre corregido
+        return inventoryRepository.obtenerInventarioCompleto();
     }
 
-    // CORRECCIÓN: Implementar el método que pide el InventoryController
     public List<InventarioDetalleDto> buscarProductosEnStock(Long areaId, String query) {
-        // Implementación de búsqueda filtrada necesaria para el frontend
-        return inventoryStockRepository.obtenerInventarioCompleto().stream()
-                .filter(p -> p.getProductName().toLowerCase().contains(query.toLowerCase()))
+        // Lógica de búsqueda filtrada para la tabla de inventario
+        return inventoryRepository.obtenerInventarioCompleto().stream()
+                .filter(p -> p.getProductName().toLowerCase().contains(query.toLowerCase()) && 
+                            (areaId == null || p.getAreaId().equals(areaId)))
                 .toList();
     }
 
     @Transactional
     public void procesarAjusteManual(AjusteStockDto ajusteDto) {
         if (ajusteDto.getNuevaCantidad() < 0) throw new RuntimeException("Cantidad negativa no permitida");
-        System.out.println("Ajuste exitoso para SKU: " + ajusteDto.getProductSku());
+        // Aquí se puede añadir lógica adicional para registrar el motivo del ajuste en una tabla de auditoría
+        System.out.println("Ajuste manual procesado para SKU: " + ajusteDto.getProductSku());
     }
 }

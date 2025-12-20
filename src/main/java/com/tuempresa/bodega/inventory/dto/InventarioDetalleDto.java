@@ -4,13 +4,13 @@ public class InventarioDetalleDto {
     private String productSku;
     private String productName;
     private String category;
-    private Long areaId;        // Necesario para la función ajustarStock en el frontend
+    private Long areaId;        // Agregado para permitir ajustes desde el frontend
     private String areaNombre;
     private Double cantidadTotal;
     private String unidadMedida;
-    private Double valorTotal;  // Valor monetario acumulado del stock
+    private Double valorTotal;  // Valor monetario acumulado (FIFO)
 
-    // El orden de este constructor DEBE ser idéntico al SELECT NEW del repositorio
+    // El orden de los parámetros DEBE coincidir con el SELECT NEW del repositorio
     public InventarioDetalleDto(String productSku, String productName, String category, 
                                 Long areaId, String areaNombre, Double cantidadTotal, 
                                 String unidadMedida, Double valorTotal) {
@@ -24,7 +24,7 @@ public class InventarioDetalleDto {
         this.valorTotal = valorTotal;
     }
 
-    // Getters (necesarios para que Spring los convierta a JSON)
+    // Getters
     public String getProductSku() { return productSku; }
     public String getProductName() { return productName; }
     public String getCategory() { return category; }

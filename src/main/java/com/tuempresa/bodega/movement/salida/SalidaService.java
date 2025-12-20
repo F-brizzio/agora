@@ -10,7 +10,6 @@ import com.tuempresa.bodega.product.Product;
 import com.tuempresa.bodega.product.ProductRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDate;
 import java.util.List;
 
@@ -40,17 +39,13 @@ public class SalidaService {
         String folio = "GC-" + System.currentTimeMillis();
 
         for (GuiaConsumoDto.DetalleSalidaDto detalle : guia.getDetalles()) {
-            
-            // 1. Identificar Área de Origen
             Long idArea = (detalle.getAreaOrigenId() != null) ? detalle.getAreaOrigenId() : guia.getAreaOrigenId();
             AreaDeTrabajo areaOrigen = areaRepository.findById(idArea)
                     .orElseThrow(() -> new RuntimeException("Área no encontrada ID: " + idArea));
 
-            // 2. Buscar Producto
             Product producto = productRepository.findBySku(detalle.getProductSku())
                     .orElseThrow(() -> new RuntimeException("Producto no encontrado: " + detalle.getProductSku()));
 
-            // 3. Lógica FIFO y Cálculo de Valor Neto Real
             List<InventoryStock> stocks = inventoryRepository.findByAreaDeTrabajoAndProductOrderByFechaIngresoAsc(areaOrigen, producto);
             double totalDisponible = stocks.stream().mapToDouble(InventoryStock::getCantidad).sum();
 
@@ -59,55 +54,45 @@ public class SalidaService {
             }
 
             double restante = detalle.getCantidad();
-            double valorNetoAcumulado = 0.0; // Aquí sumaremos el costo real de cada lote usado
+            double valorNetoAcumulado = 0.0;
 
             for (InventoryStock lote : stocks) {
                 if (restante <= 0) break;
-
-                double cantidadEnEsteLote = lote.getCantidad();
-                double cantidadASacar = Math.min(cantidadEnEsteLote, restante);
-
-                // SUMAMOS AL VALOR NETO: (Cantidad sacada de este lote * Su precio de costo original)
+                double cantidadASacar = Math.min(lote.getCantidad(), restante);
                 valorNetoAcumulado += (cantidadASacar * lote.getPrecioCosto());
 
-                if (cantidadEnEsteLote <= restante) {
-                    restante -= cantidadEnEsteLote;
+                if (lote.getCantidad() <= restante) {
+                    restante -= lote.getCantidad();
                     inventoryRepository.delete(lote);
                 } else {
-                    lote.setCantidad(cantidadEnEsteLote - restante);
+                    lote.setCantidad(lote.getCantidad() - restante);
                     inventoryRepository.save(lote);
                     restante = 0;
                 }
             }
 
-            // 4. Determinar Destino
             String nombreDestino = "Consumo Interno";
             if (detalle.getAreaDestinoId() != null) {
                 nombreDestino = areaRepository.findById(detalle.getAreaDestinoId())
                                 .map(AreaDeTrabajo::getNombre).orElse("Consumo Interno");
             }
 
-            // 5. Guardar en Historial con el Valor Neto Real calculado
-            SalidaHistorial linea = new SalidaHistorial(
-                fechaRegistro, folio, producto.getSku(), producto.getName(),
-                areaOrigen.getNombre(), nombreDestino, detalle.getCantidad()
-            );
+            SalidaHistorial linea = new SalidaHistorial(fechaRegistro, folio, producto.getSku(), producto.getName(), areaOrigen.getNombre(), nombreDestino, detalle.getCantidad());
             linea.setUsuarioResponsable(responsable);
             linea.setTipoSalida(detalle.getTipoSalida() != null ? detalle.getTipoSalida() : "CONSUMO");
-            linea.setValorNeto(valorNetoAcumulado); // <--- VALOR REAL SEGÚN LOTES
-            
+            linea.setValorNeto(valorNetoAcumulado);
             historialRepository.save(linea);
         }
     }
 
-    // Método para el Buscador Dinámico del Frontend
-    public List<InventoryStock> buscarStockPorAreaYNombre(Long areaId, String query) {
-        AreaDeTrabajo area = areaRepository.findById(areaId)
-                .orElseThrow(() -> new RuntimeException("Área no encontrada"));
-        return inventoryRepository.findByAreaDeTrabajoAndProduct_NameContainingIgnoreCase(area, query);
+    public List<?> buscarStockParaGuia(Long areaId, String query) {
+        // Lógica especial: Si no hay areaId o es el de "General", buscar en toda la bodega
+        if (areaId == null) {
+            return inventoryRepository.buscarStockGlobalParaGuia(query);
+        }
+        return inventoryRepository.buscarStockParaGuia(areaId, query);
     }
 
-    // Listar resumen agrupado (para la tabla principal del historial)
     public List<ResumenSalidaDto> obtenerResumenHistorial() {
         return historialRepository.findAllResumen();
     }

@@ -46,7 +46,7 @@ public class SalidaService {
 
         for (GuiaConsumoDto.DetalleSalidaDto detalle : guia.getDetalles()) {
             
-            // 1. Identificar Área de Origen (Prioriza el del ítem para el Modo General)
+            // 1. Identificar Área de Origen: Prioriza el del ítem (útil para el Modo General)
             Long idArea = (detalle.getAreaOrigenId() != null) ? detalle.getAreaOrigenId() : guia.getAreaOrigenId();
             AreaDeTrabajo areaOrigen = areaRepository.findById(idArea)
                     .orElseThrow(() -> new RuntimeException("Área no encontrada ID: " + idArea));
@@ -74,7 +74,7 @@ public class SalidaService {
                 double cantidadEnEsteLote = lote.getCantidad();
                 double cantidadASacar = Math.min(cantidadEnEsteLote, restante);
 
-                // Acumulamos el costo real del lote
+                // Acumulamos el costo real del lote para el reporte financiero
                 valorNetoAcumulado += (cantidadASacar * lote.getPrecioCosto());
 
                 if (cantidadEnEsteLote <= restante) {
@@ -87,14 +87,14 @@ public class SalidaService {
                 }
             }
 
-            // 5. Determinar Destino (Útil para transferencias en Modo General)
+            // 5. Determinar Destino (Útil para transferencias o consumo interno)
             String nombreDestino = "Consumo Interno";
             if (detalle.getAreaDestinoId() != null) {
                 nombreDestino = areaRepository.findById(detalle.getAreaDestinoId())
                                 .map(AreaDeTrabajo::getNombre).orElse("Consumo Interno");
             }
 
-            // 6. Registrar en el historial
+            // 6. Registrar en el historial para reportes de consumo/merma
             SalidaHistorial linea = new SalidaHistorial(
                 fechaRegistro, folio, producto.getSku(), producto.getName(),
                 areaOrigen.getNombre(), nombreDestino, detalle.getCantidad()
@@ -111,16 +111,16 @@ public class SalidaService {
      * Buscador dinámico que soporta el Modo General (búsqueda global si areaId es null).
      */
     public List<StockDisponibleDto> buscarStockParaGuia(Long areaId, String query) {
-        // Si no se proporciona areaId (Modo General), busca en todas las áreas
+        // Si no hay areaId, se activa la búsqueda global en todas las áreas de trabajo
         if (areaId == null) {
             return inventoryRepository.buscarStockGlobalParaGuia(query);
         }
-        // De lo contrario, filtra por el área seleccionada
+        // De lo contrario, busca solo en la bodega seleccionada
         return inventoryRepository.buscarStockParaGuia(areaId, query);
     }
 
     /**
-     * Obtiene el resumen del historial de salidas.
+     * Obtiene el resumen del historial de salidas agrupado por folio.
      */
     public List<ResumenSalidaDto> obtenerResumenHistorial() {
         return historialRepository.findAllResumen();

@@ -46,7 +46,7 @@ public class DataLoader implements CommandLineRunner {
         // 2. CREAR ÁREAS DE TRABAJO (Si no existen)
         if (areaRepository.count() == 0) {
             List<String> areasGuia = List.of(
-                "Coffee", "Casino", "Administración", "General", 
+                "Coffee", "Casino", "Administración", 
                 "Sin asignar", "Residencia", "Alojamiento", "Evento"
             );
 

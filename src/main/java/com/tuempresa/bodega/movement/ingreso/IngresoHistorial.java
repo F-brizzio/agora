@@ -76,4 +76,5 @@ public class IngresoHistorial {
     public Double getTotalIva() {
         return getTotalNeto() * 0.19;
     }
+    
 }

@@ -30,14 +30,19 @@ public interface InventoryStockRepository extends JpaRepository<InventoryStock, 
     // 2. CONSULTAS PARA LA VISTA DE TABLA (INVENTARIO COMPLETO)
 
     // Agrupa el stock por Producto y Área para la tabla principal
-    @Query("SELECT new com.tuempresa.bodega.inventory.dto.InventarioDetalleDto(" +
-           "s.product.sku, s.product.name, s.areaDeTrabajo.id, s.areaDeTrabajo.nombre, " +
-           "SUM(s.cantidad), s.product.unitOfMeasure, s.product.category) " +
-           "FROM InventoryStock s " +
-           "GROUP BY s.product.sku, s.product.name, s.areaDeTrabajo.id, s.areaDeTrabajo.nombre, s.product.unitOfMeasure, s.product.category " +
-           "HAVING SUM(s.cantidad) > 0")
-    List<InventarioDetalleDto> obtenerInventarioCompleto();
-
+       @Query("SELECT new com.tuempresa.bodega.inventory.dto.InventarioDetalleDto(" +
+              "s.product.sku, " +           // 1. String
+              "s.product.name, " +          // 2. String
+              "s.product.category, " +      // 3. String
+              "s.areaDeTrabajo.id, " +      // 4. Long
+              "s.areaDeTrabajo.nombre, " +  // 5. String
+              "SUM(s.cantidad), " +         // 6. Double (cantidadTotal)
+              "s.product.unitOfMeasure, " + // 7. String
+              "SUM(s.cantidad * s.precioCosto)) " + // 8. Double (valorTotal - Agregado para cumplir con el DTO)
+              "FROM InventoryStock s " +
+              "GROUP BY s.product.sku, s.product.name, s.product.category, s.areaDeTrabajo.id, s.areaDeTrabajo.nombre, s.product.unitOfMeasure " +
+              "HAVING SUM(s.cantidad) > 0")
+       List<InventarioDetalleDto> obtenerInventarioCompleto();
 
     // 3. CONSULTAS PARA GUÍAS DE CONSUMO (BUSCADOR DINÁMICO)
 

@@ -9,7 +9,7 @@ import java.util.List;
 
 public class GuiaConsumoDto {
 
-    @NotNull(message = "El área de origen de la cabecera es obligatoria")
+    
     private Long areaOrigenId; 
 
     @NotBlank(message = "Debe indicar un responsable")
@@ -21,7 +21,7 @@ public class GuiaConsumoDto {
     @NotEmpty(message = "La guía debe contener al menos un producto")
     private List<DetalleSalidaDto> detalles;
 
-    // Getters y Setters
+    // Getters y Setters...
     public Long getAreaOrigenId() { return areaOrigenId; }
     public void setAreaOrigenId(Long areaOrigenId) { this.areaOrigenId = areaOrigenId; }
     
@@ -45,10 +45,11 @@ public class GuiaConsumoDto {
         @NotBlank(message = "Debe especificar si es CONSUMO o MERMA")
         private String tipoSalida; 
 
-        private Long areaOrigenId;  // Origen específico (Uso obligatorio en modo General)
-        private Long areaDestinoId; // Destino (Uso obligatorio en modo General)
+        // Estos campos son opcionales en guías normales, pero obligatorios en Modo General
+        private Long areaOrigenId;  
+        private Long areaDestinoId; 
 
-        // Getters y Setters
+        // Getters y Setters...
         public String getProductSku() { return productSku; }
         public void setProductSku(String productSku) { this.productSku = productSku; }
         

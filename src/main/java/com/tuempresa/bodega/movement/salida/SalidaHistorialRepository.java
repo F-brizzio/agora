@@ -12,16 +12,27 @@ public interface SalidaHistorialRepository extends JpaRepository<SalidaHistorial
 
     /**
      * Obtiene el resumen agrupado por folio.
-     * Se agrega SUM(h.valorNeto) para cumplir con el requisito de mostrar el valor total de la guía.
-     * Se ordena por fecha descendente para ver lo más reciente primero.
+     * Se actualiza para incluir responsable y destino en la vista principal.
+     * Se utiliza MAX() para campos de texto porque al agrupar por folio, 
+     * se asume que todos los items de la misma guía comparten estos datos.
      */
     @Query("SELECT new com.tuempresa.bodega.movement.salida.dto.ResumenSalidaDto(" +
-           "h.folio, MAX(h.fecha), MAX(h.areaOrigen), COUNT(h), SUM(h.cantidad), SUM(h.valorNeto)) " +
+           "h.folio, " +
+           "MAX(h.fecha), " +
+           "MAX(h.usuarioResponsable), " + // Nuevo: Extrae el responsable
+           "MAX(h.areaDestino), " +        // Nuevo: Extrae el destino
+           "MAX(h.areaOrigen), " +
+           "COUNT(h), " +
+           "SUM(h.cantidad), " +
+           "SUM(h.valorNeto)) " +          // Suma de valorización real FIFO
            "FROM SalidaHistorial h " +
            "GROUP BY h.folio " +
            "ORDER BY MAX(h.fecha) DESC")
     List<ResumenSalidaDto> findAllResumen();
 
-    // Obtiene todos los productos de una guía específica
+    /**
+     * Obtiene todos los productos de una guía específica para la vista de detalle.
+     * Devuelve la entidad completa con campos como productName, tipoSalida y valorNeto.
+     */
     List<SalidaHistorial> findByFolio(String folio);
 }

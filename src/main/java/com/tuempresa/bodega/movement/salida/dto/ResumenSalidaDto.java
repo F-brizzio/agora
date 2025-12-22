@@ -5,14 +5,13 @@ import java.time.LocalDate;
 public class ResumenSalidaDto {
     private String folio;
     private LocalDate fecha;
-    private String responsable; // Nuevo: Para el requisito de vista principal
-    private String destino;     // Nuevo: Para el requisito de vista principal
+    private String responsable; // Añadido
+    private String destino;     // Añadido
     private String areaOrigen;
     private Long cantidadItems;
     private Double totalUnidades;
-    private Double totalNeto;   // Requisito de valorización
+    private Double totalNeto;
 
-    // Constructor actualizado para coincidir con la consulta del repositorio
     public ResumenSalidaDto(String folio, LocalDate fecha, String responsable, String destino, 
                             String areaOrigen, Long cantidadItems, Double totalUnidades, Double totalNeto) {
         this.folio = folio;
@@ -24,8 +23,7 @@ public class ResumenSalidaDto {
         this.totalUnidades = totalUnidades;
         this.totalNeto = totalNeto;
     }
-
-    // Getters necesarios para la serialización a JSON
+    // Getters para todos los campos (Importante para el JSON)
     public String getFolio() { return folio; }
     public LocalDate getFecha() { return fecha; }
     public String getResponsable() { return responsable; }

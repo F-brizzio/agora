@@ -17,17 +17,9 @@ public interface SalidaHistorialRepository extends JpaRepository<SalidaHistorial
      * se asume que todos los items de la misma guía comparten estos datos.
      */
     @Query("SELECT new com.tuempresa.bodega.movement.salida.dto.ResumenSalidaDto(" +
-           "h.folio, " +
-           "MAX(h.fecha), " +
-           "MAX(h.usuarioResponsable), " + // Nuevo: Extrae el responsable
-           "MAX(h.areaDestino), " +        // Nuevo: Extrae el destino
-           "MAX(h.areaOrigen), " +
-           "COUNT(h), " +
-           "SUM(h.cantidad), " +
-           "SUM(h.valorNeto)) " +          // Suma de valorización real FIFO
-           "FROM SalidaHistorial h " +
-           "GROUP BY h.folio " +
-           "ORDER BY MAX(h.fecha) DESC")
+        "h.folio, MAX(h.fecha), MAX(h.usuarioResponsable), MAX(h.areaDestino), " +
+        "MAX(h.areaOrigen), COUNT(h), SUM(h.cantidad), SUM(h.valorNeto)) " +
+        "FROM SalidaHistorial h GROUP BY h.folio ORDER BY MAX(h.fecha) DESC")
     List<ResumenSalidaDto> findAllResumen();
 
     /**

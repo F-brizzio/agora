@@ -34,8 +34,7 @@ public class SalidaService {
     }
 
     /**
-     * Procesa la guía de consumo completa aplicando la lógica FIFO.
-     * Calcula y persiste el valor neto real basado en el costo de los lotes consumidos.
+     * Procesa la guía de consumo aplicando FIFO y valorización real.
      */
     @Transactional
     public void procesarGuiaConsumo(GuiaConsumoDto guia) {
@@ -53,7 +52,7 @@ public class SalidaService {
             Product producto = productRepository.findBySku(detalle.getProductSku())
                     .orElseThrow(() -> new RuntimeException("Producto no encontrado: " + detalle.getProductSku()));
 
-            // Lógica FIFO: Obtener lotes por fecha de ingreso ascendente
+            // Obtener lotes ordenados para FIFO
             List<InventoryStock> stocks = inventoryRepository.findByAreaDeTrabajoAndProductOrderByFechaIngresoAsc(areaOrigen, producto);
             double totalDisponible = stocks.stream().mapToDouble(InventoryStock::getCantidad).sum();
 
@@ -70,7 +69,7 @@ public class SalidaService {
                 double cantidadEnEsteLote = lote.getCantidad();
                 double cantidadASacar = Math.min(cantidadEnEsteLote, restante);
 
-                // Cálculo financiero: acumulamos el costo real del lote multiplicado por lo que sacamos
+                // Cálculo del valor basado en el precio de costo del lote
                 valorNetoAcumulado += (cantidadASacar * lote.getPrecioCosto());
 
                 if (cantidadEnEsteLote <= restante) {
@@ -83,13 +82,18 @@ public class SalidaService {
                 }
             }
 
-            String nombreDestino = "Consumo Interno";
+            // --- CAMBIO SOLICITADO: LÓGICA DE DESTINO ---
+            // Por defecto, el destino es el nombre del área de origen
+            String nombreDestino = areaOrigen.getNombre(); 
+
+            // Si se especificó un área de destino distinta, buscamos su nombre
             if (detalle.getAreaDestinoId() != null) {
                 nombreDestino = areaRepository.findById(detalle.getAreaDestinoId())
-                                .map(AreaDeTrabajo::getNombre).orElse("Consumo Interno");
+                                .map(AreaDeTrabajo::getNombre)
+                                .orElse(areaOrigen.getNombre());
             }
 
-            // Registro en el historial con el valorNeto calculado para auditoría
+            // Registro en el historial
             SalidaHistorial linea = new SalidaHistorial(
                 fechaRegistro, folio, producto.getSku(), producto.getName(),
                 areaOrigen.getNombre(), nombreDestino, detalle.getCantidad()
@@ -97,7 +101,7 @@ public class SalidaService {
             linea.setUsuarioResponsable(responsable);
             linea.setTipoSalida(detalle.getTipoSalida() != null ? detalle.getTipoSalida() : "CONSUMO");
             
-            // ASIGNACIÓN CRÍTICA: Guardamos el valor monetario real
+            // Persistencia del valor neto calculado por FIFO
             linea.setValorNeto(valorNetoAcumulado); 
             
             historialRepository.save(linea);
@@ -105,8 +109,7 @@ public class SalidaService {
     }
 
     /**
-     * NUEVO MÉTODO: Resuelve el error 'undefined' en el controlador.
-     * Retorna el resumen agrupado por folio procesado en el repositorio.
+     * Retorna el resumen agrupado para la vista principal del historial.
      */
     public List<ResumenSalidaDto> obtenerResumenHistorial() {
         return historialRepository.findAllResumen();

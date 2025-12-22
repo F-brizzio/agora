@@ -10,45 +10,54 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/salidas")
-@CrossOrigin(origins = "*") // Permite la conexión desde tu frontend en React
+@CrossOrigin(origins = "*") 
 public class SalidaController {
 
     private final SalidaService salidaService;
+    private final SalidaHistorialRepository historialRepository; // Añadido para el detalle
 
-    public SalidaController(SalidaService salidaService) {
+    public SalidaController(SalidaService salidaService, SalidaHistorialRepository historialRepository) {
         this.salidaService = salidaService;
+        this.historialRepository = historialRepository;
     }
 
     /**
-     * 1. REGISTRAR GUÍA (POST)
-     * Procesa la salida de productos aplicando FIFO.
+     * 1. REGISTRAR GUÍA (POST /api/salidas)
      */
     @PostMapping
     public ResponseEntity<String> registrarSalida(@Valid @RequestBody GuiaConsumoDto guiaDto) {
-        // Log informativo para depuración en consola
-        System.out.println("📢 Recibiendo guía para área origen: " + guiaDto.getAreaOrigenId()); 
         salidaService.procesarGuiaConsumo(guiaDto);
         return ResponseEntity.ok("Guía de consumo registrada con éxito");
     }
 
     /**
-     * 2. LISTAR HISTORIAL (GET)
-     * Retorna el resumen agrupado de todas las guías emitidas.
+     * 2. LISTAR RESUMEN (GET /api/salidas)
+     * Primera instancia: Fecha, Responsable, Destino y Total Neto.
      */
     @GetMapping
     public ResponseEntity<List<ResumenSalidaDto>> obtenerHistorial() {
+        // Llama a findAllResumen() que definimos en el repositorio
         return ResponseEntity.ok(salidaService.obtenerResumenHistorial());
     }
 
     /**
-     * 3. BUSCADOR DINÁMICO (Modificado para Modo General)
-     * Si areaId no se envía, se activa la búsqueda global en todas las áreas.
+     * 3. OBTENER DETALLE (GET /api/salidas/{folio})
+     * Segunda instancia: Desglose completo de productos de una guía.
+     */
+    @GetMapping("/{folio}")
+    public ResponseEntity<List<SalidaHistorial>> obtenerDetallePorFolio(@PathVariable String folio) {
+        // Busca todos los productos asociados a ese folio en el historial
+        List<SalidaHistorial> detalles = historialRepository.findByFolio(folio);
+        return ResponseEntity.ok(detalles);
+    }
+
+    /**
+     * 4. BUSCADOR DINÁMICO
      */
     @GetMapping("/buscar-productos")
     public ResponseEntity<?> buscarProductosPorArea(
-            @RequestParam(required = false) Long areaId, // Se cambia a OPCIONAL para el Modo General
+            @RequestParam(required = false) Long areaId, 
             @RequestParam String query) {
-        // Llama al nuevo método del servicio que maneja lógica global o por área
         return ResponseEntity.ok(salidaService.buscarStockParaGuia(areaId, query));
     }
 }
